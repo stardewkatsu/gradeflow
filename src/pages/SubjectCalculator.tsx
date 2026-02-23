@@ -4,13 +4,26 @@ import { percentToGrade, formatGrade, getGradeLabel } from '@/lib/gradeUtils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, X } from 'lucide-react';
 
-interface SubScores {
-  [assessmentName: string]: {
-    mode: 'single' | 'multi';
-    single: string;
-    items: string[];
-  };
+interface ScoreItem {
+  score: string;
+  total: string;
 }
+
+interface AssessmentEntry {
+  mode: 'single' | 'items';
+  single: string;
+  items: ScoreItem[];
+}
+
+interface SubScores {
+  [assessmentName: string]: AssessmentEntry;
+}
+
+const defaultEntry = (): AssessmentEntry => ({
+  mode: 'single',
+  single: '',
+  items: [],
+});
 
 export default function SubjectCalculator() {
   const [selectedId, setSelectedId] = useState(SUBJECTS[0].id);
@@ -20,13 +33,16 @@ export default function SubjectCalculator() {
   const subjectScores = allScores[selectedId] || {};
 
   const getAssessmentValue = (name: string): number | null => {
-    const entry = subjectScores[name];
-    if (!entry) return null;
+    const entry = subjectScores[name] || defaultEntry();
 
-    if (entry.mode === 'multi' && entry.items.length > 0) {
-      const nums = entry.items.filter(v => v !== '' && !isNaN(parseFloat(v))).map(Number);
-      if (nums.length === 0) return null;
-      return nums.reduce((a, b) => a + b, 0) / nums.length;
+    if (entry.mode === 'items' && entry.items.length > 0) {
+      const valid = entry.items.filter(
+        i => i.score !== '' && i.total !== '' && !isNaN(Number(i.score)) && !isNaN(Number(i.total)) && Number(i.total) > 0
+      );
+      if (valid.length === 0) return null;
+      const totalScore = valid.reduce((s, i) => s + Number(i.score), 0);
+      const totalPossible = valid.reduce((s, i) => s + Number(i.total), 0);
+      return (totalScore / totalPossible) * 100;
     }
 
     if (entry.single && !isNaN(parseFloat(entry.single))) {
@@ -43,24 +59,19 @@ export default function SubjectCalculator() {
 
   const grade = weightedPercent != null ? percentToGrade(weightedPercent) : null;
 
-  const updateEntry = (name: string, update: Partial<SubScores[string]>) => {
+  const updateEntry = (name: string, update: Partial<AssessmentEntry>) => {
     setAllScores(prev => ({
       ...prev,
       [selectedId]: {
         ...prev[selectedId],
         [name]: {
-          mode: 'single',
-          single: '',
-          items: [],
+          ...defaultEntry(),
           ...prev[selectedId]?.[name],
           ...update,
         },
       },
     }));
   };
-
-  const isFA = (name: string) =>
-    name.toLowerCase().includes('quiz') || name.toLowerCase().includes('fa');
 
   return (
     <div className="min-h-screen pb-20">
@@ -105,9 +116,15 @@ export default function SubjectCalculator() {
             </p>
             <div className="space-y-4">
               {subject.assessments.map(a => {
-                const entry = subjectScores[a.name] || { mode: 'single' as const, single: '', items: [] };
-                const showMulti = isFA(a.name);
-                const avg = getAssessmentValue(a.name);
+                const entry = subjectScores[a.name] || defaultEntry();
+                const pct = getAssessmentValue(a.name);
+
+                // Compute totals for items mode
+                const validItems = entry.items.filter(
+                  i => i.score !== '' && i.total !== '' && !isNaN(Number(i.score)) && !isNaN(Number(i.total)) && Number(i.total) > 0
+                );
+                const totalScore = validItems.reduce((s, i) => s + Number(i.score), 0);
+                const totalPossible = validItems.reduce((s, i) => s + Number(i.total), 0);
 
                 return (
                   <div key={a.name}>
@@ -118,23 +135,23 @@ export default function SubjectCalculator() {
                           {(a.weight * 100).toFixed(0)}%
                         </span>
                       </label>
-                      {showMulti && (
-                        <button
-                          onClick={() => {
-                            const newMode = entry.mode === 'multi' ? 'single' : 'multi';
-                            updateEntry(a.name, {
-                              mode: newMode,
-                              items: newMode === 'multi' && entry.items.length === 0 ? ['', ''] : entry.items,
-                            });
-                          }}
-                          className="text-[9px] font-medium text-primary/70 hover:text-primary transition-colors"
-                        >
-                          {entry.mode === 'multi' ? 'use total' : 'add items'}
-                        </button>
-                      )}
+                      <button
+                        onClick={() => {
+                          const newMode = entry.mode === 'items' ? 'single' : 'items';
+                          updateEntry(a.name, {
+                            mode: newMode,
+                            items: newMode === 'items' && entry.items.length === 0
+                              ? [{ score: '', total: '' }, { score: '', total: '' }]
+                              : entry.items,
+                          });
+                        }}
+                        className="text-[9px] font-medium text-primary/70 hover:text-primary transition-colors"
+                      >
+                        {entry.mode === 'items' ? 'use total %' : 'add items'}
+                      </button>
                     </div>
 
-                    {entry.mode === 'single' || !showMulti ? (
+                    {entry.mode === 'single' ? (
                       <input
                         type="number"
                         min="0"
@@ -149,20 +166,33 @@ export default function SubjectCalculator() {
                       <div className="space-y-1.5">
                         {entry.items.map((item, idx) => (
                           <div key={idx} className="flex items-center gap-1.5">
-                            <span className="text-[9px] text-muted-foreground/50 w-4 text-right tabular-nums">
+                            <span className="text-[9px] text-muted-foreground/50 w-4 text-right tabular-nums shrink-0">
                               {idx + 1}
                             </span>
                             <input
                               type="number"
                               min="0"
-                              max="100"
                               step="0.01"
-                              placeholder={`Item ${idx + 1}`}
+                              placeholder="score"
                               className="flex-1 rounded-xl border-0 bg-secondary/60 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/30"
-                              value={item}
+                              value={item.score}
                               onChange={e => {
                                 const newItems = [...entry.items];
-                                newItems[idx] = e.target.value;
+                                newItems[idx] = { ...newItems[idx], score: e.target.value };
+                                updateEntry(a.name, { items: newItems });
+                              }}
+                            />
+                            <span className="text-muted-foreground/40 text-xs">/</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              placeholder="total"
+                              className="flex-1 rounded-xl border-0 bg-secondary/60 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                              value={item.total}
+                              onChange={e => {
+                                const newItems = [...entry.items];
+                                newItems[idx] = { ...newItems[idx], total: e.target.value };
                                 updateEntry(a.name, { items: newItems });
                               }}
                             />
@@ -172,7 +202,7 @@ export default function SubjectCalculator() {
                                   const newItems = entry.items.filter((_, j) => j !== idx);
                                   updateEntry(a.name, { items: newItems });
                                 }}
-                                className="p-1 text-muted-foreground/40 hover:text-destructive transition-colors"
+                                className="p-1 text-muted-foreground/40 hover:text-destructive transition-colors shrink-0"
                               >
                                 <X className="h-3 w-3" />
                               </button>
@@ -180,16 +210,21 @@ export default function SubjectCalculator() {
                           </div>
                         ))}
                         <button
-                          onClick={() => updateEntry(a.name, { items: [...entry.items, ''] })}
+                          onClick={() => updateEntry(a.name, { items: [...entry.items, { score: '', total: '' }] })}
                           className="flex items-center gap-1 text-[10px] font-medium text-primary/60 hover:text-primary transition-colors py-1"
                         >
                           <Plus className="h-3 w-3" />
                           add item
                         </button>
-                        {avg !== null && (
-                          <p className="text-[10px] text-muted-foreground/60 italic">
-                            avg: {avg.toFixed(1)}
-                          </p>
+                        {validItems.length > 0 && (
+                          <div className="flex items-center justify-between rounded-lg bg-secondary/40 px-3 py-1.5">
+                            <span className="text-[10px] font-medium text-muted-foreground/70">
+                              Total: {totalScore}/{totalPossible}
+                            </span>
+                            <span className="text-[10px] font-semibold text-foreground/80 tabular-nums">
+                              {pct !== null ? `${pct.toFixed(1)}%` : '—'}
+                            </span>
+                          </div>
                         )}
                       </div>
                     )}

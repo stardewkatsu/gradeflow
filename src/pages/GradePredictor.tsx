@@ -1,193 +1,197 @@
-import { useState, useMemo } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useGrades } from '@/hooks/useGrades';
 import { SUBJECTS } from '@/lib/subjectConfig';
-import { formatGrade, getGradeLabel } from '@/lib/gradeUtils';
-import { Sparkles } from 'lucide-react';
+import { calculateFinalGrade, formatGrade } from '@/lib/gradeUtils';
+import { Send, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
+import ReactMarkdown from 'react-markdown';
 
-const GRADE_TARGETS = [1.00, 1.25, 1.50, 1.75, 2.00, 2.25, 2.50, 2.75, 3.00];
+type Msg = { role: 'user' | 'assistant'; content: string };
 
-function gradeToMinPercent(g: number): number {
-  if (g <= 1.00) return 96;
-  if (g <= 1.25) return 90;
-  if (g <= 1.50) return 84;
-  if (g <= 1.75) return 78;
-  if (g <= 2.00) return 72;
-  if (g <= 2.25) return 66;
-  if (g <= 2.50) return 60;
-  if (g <= 2.75) return 55;
-  return 50;
+function buildGradeContext(grades: ReturnType<typeof useGrades>['grades']): string {
+  const lines: string[] = [];
+  SUBJECTS.forEach(s => {
+    const g = grades[s.id];
+    const prev = g?.previousGrade;
+    const tent = g?.tentativeGrade;
+    const final = prev != null && tent != null ? calculateFinalGrade(tent, prev) : null;
+    lines.push(`${s.name}: previous=${prev != null ? formatGrade(prev) : 'N/A'}, tentative=${tent != null ? formatGrade(tent) : 'N/A'}, final=${final != null ? final.toFixed(2) : 'N/A'}`);
+    lines.push(`  Assessments: ${s.assessments.map(a => `${a.name} (${(a.weight * 100).toFixed(0)}%)`).join(', ')}`);
+  });
+  return lines.join('\n');
 }
 
 export default function GradePredictor() {
-  const [selectedId, setSelectedId] = useState(SUBJECTS[0].id);
-  const [scores, setScores] = useState<Record<string, Record<string, string>>>({});
-  const [targetGrade, setTargetGrade] = useState<number>(1.75);
-  const [solveFor, setSolveFor] = useState<string>('');
+  const { grades } = useGrades();
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const subject = SUBJECTS.find(s => s.id === selectedId)!;
-  const subjectScores = scores[selectedId] || {};
-  const validSolveFor = subject.assessments.find(a => a.name === solveFor) ? solveFor : '';
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+  }, [messages]);
 
-  const prediction = useMemo(() => {
-    if (!validSolveFor) return null;
-    const solveAssessment = subject.assessments.find(a => a.name === validSolveFor)!;
-    const targetPercent = gradeToMinPercent(targetGrade);
+  const send = async () => {
+    const text = input.trim();
+    if (!text || isLoading) return;
 
-    let knownSum = 0;
-    for (const a of subject.assessments) {
-      if (a.name === validSolveFor) continue;
-      const v = subjectScores[a.name];
-      if (v == null || v === '' || isNaN(parseFloat(v))) return { type: 'missing' as const };
-      knownSum += parseFloat(v) * a.weight;
+    const userMsg: Msg = { role: 'user', content: text };
+    setMessages(prev => [...prev, userMsg]);
+    setInput('');
+    setIsLoading(true);
+
+    const allMessages = [...messages, userMsg];
+    let assistantSoFar = '';
+
+    try {
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/grade-chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          messages: allMessages,
+          gradeContext: buildGradeContext(grades),
+        }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: 'Failed' }));
+        toast.error(err.error || 'Something went wrong');
+        setIsLoading(false);
+        return;
+      }
+
+      const reader = resp.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      const upsert = (chunk: string) => {
+        assistantSoFar += chunk;
+        setMessages(prev => {
+          const last = prev[prev.length - 1];
+          if (last?.role === 'assistant') {
+            return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
+          }
+          return [...prev, { role: 'assistant', content: assistantSoFar }];
+        });
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+          let line = buffer.slice(0, newlineIndex);
+          buffer = buffer.slice(newlineIndex + 1);
+          if (line.endsWith('\r')) line = line.slice(0, -1);
+          if (line.startsWith(':') || line.trim() === '') continue;
+          if (!line.startsWith('data: ')) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === '[DONE]') break;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) upsert(content);
+          } catch { /* partial */ }
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to connect');
     }
-
-    const required = (targetPercent - knownSum) / solveAssessment.weight;
-    if (required > 100) return { type: 'impossible' as const, required };
-    return { type: 'ok' as const, required: Math.max(0, required), targetPercent };
-  }, [subject, subjectScores, targetGrade, validSolveFor]);
+    setIsLoading(false);
+  };
 
   return (
-    <div className="min-h-screen pb-20">
-      <header className="px-5 pt-14 pb-2 text-center">
+    <div className="flex flex-col h-screen pb-16">
+      <header className="px-5 pt-14 pb-2 text-center shrink-0">
         <div className="inline-flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-accent" strokeWidth={1.8} />
-          <h1 className="text-3xl text-foreground tracking-tight">
-            Predict
-          </h1>
+          <h1 className="text-3xl text-foreground tracking-tight">Ask AI</h1>
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground italic">
-          what do you need?
+          ask about your grades
         </p>
       </header>
 
-      <div className="px-5 pt-4 space-y-3">
-        <div className="rounded-2xl bg-card p-4 card-soft space-y-3">
-          <div>
-            <label className="text-[9px] font-semibold text-muted-foreground/70 tracking-[0.15em] uppercase">
-              Subject
-            </label>
-            <select
-              className="mt-1 w-full rounded-xl border-0 bg-secondary/60 px-3 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 appearance-none"
-              value={selectedId}
-              onChange={e => { setSelectedId(e.target.value); setSolveFor(''); }}
-            >
-              {SUBJECTS.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-[9px] font-semibold text-muted-foreground/70 tracking-[0.15em] uppercase">
-              Target Grade
-            </label>
-            <select
-              className="mt-1 w-full rounded-xl border-0 bg-secondary/60 px-3 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 appearance-none"
-              value={targetGrade}
-              onChange={e => setTargetGrade(parseFloat(e.target.value))}
-            >
-              {GRADE_TARGETS.map(g => (
-                <option key={g} value={g}>{formatGrade(g)} — {getGradeLabel(g)}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="rounded-2xl bg-card p-4 card-soft">
-          <p className="mb-1 text-[9px] font-semibold text-muted-foreground/70 tracking-[0.15em] uppercase">
-            Known Scores
-          </p>
-          <p className="mb-4 text-[10px] text-muted-foreground/50 italic">
-            leave blank the one to solve for
-          </p>
-          <div className="space-y-3">
-            {subject.assessments.map(a => (
-              <div key={a.name}>
-                <label className="text-xs text-muted-foreground">
-                  {a.name}
-                  <span className="ml-1 text-[10px] text-muted-foreground/50">
-                    {(a.weight * 100).toFixed(0)}%
-                  </span>
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  placeholder={validSolveFor === a.name ? '✦ solving...' : '0–100'}
-                  disabled={validSolveFor === a.name}
-                  className="mt-1 w-full rounded-xl border-0 bg-secondary/60 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/30 disabled:opacity-40 disabled:bg-muted/40"
-                  value={validSolveFor === a.name ? '' : (subjectScores[a.name] || '')}
-                  onChange={e => {
-                    setScores(prev => ({
-                      ...prev,
-                      [selectedId]: {
-                        ...prev[selectedId],
-                        [a.name]: e.target.value,
-                      },
-                    }));
-                  }}
-                />
-              </div>
+      {/* Messages */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-3 space-y-3">
+        {messages.length === 0 && (
+          <div className="text-center pt-8 space-y-3">
+            <p className="text-sm text-muted-foreground italic">try asking…</p>
+            {[
+              'What grade do I need in LT2 to get 2.00 in Physics?',
+              'Which subjects should I focus on?',
+              'If I score 85 in my AA, what will my Chemistry grade be?',
+            ].map((q, i) => (
+              <button
+                key={i}
+                onClick={() => { setInput(q); }}
+                className="block mx-auto text-xs text-primary/70 hover:text-primary bg-primary/5 rounded-xl px-3 py-2 transition-colors"
+              >
+                "{q}"
+              </button>
             ))}
           </div>
-
-          <div className="mt-4">
-            <label className="text-[9px] font-semibold text-muted-foreground/70 tracking-[0.15em] uppercase">
-              Solve for
-            </label>
-            <select
-              className="mt-1 w-full rounded-xl border-0 bg-secondary/60 px-3 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 appearance-none"
-              value={validSolveFor}
-              onChange={e => setSolveFor(e.target.value)}
-            >
-              <option value="">pick one…</option>
-              {subject.assessments.map(a => (
-                <option key={a.name} value={a.name}>{a.name}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {prediction && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.97 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="rounded-2xl bg-card p-5 card-soft text-center"
-          >
-            {prediction.type === 'missing' && (
-              <p className="text-sm text-muted-foreground italic">
-                fill in the other scores first
-              </p>
-            )}
-            {prediction.type === 'impossible' && (
-              <div>
-                <p className="text-sm font-medium text-destructive">
-                  not achievable ✕
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  you'd need {prediction.required.toFixed(1)}%
-                </p>
-              </div>
-            )}
-            {prediction.type === 'ok' && (
-              <div>
-                <p className="text-[9px] font-semibold text-muted-foreground/70 tracking-[0.15em] uppercase">
-                  You need at least
-                </p>
-                <p
-                  className="mt-2 text-5xl tabular-nums text-primary"
-                  style={{ fontFamily: "'Instrument Serif', serif" }}
-                >
-                  {prediction.required.toFixed(1)}%
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  in {validSolveFor} for a{' '}
-                  <span className="font-semibold text-foreground">{formatGrade(targetGrade)}</span>
-                </p>
-              </div>
-            )}
-          </motion.div>
         )}
+        {messages.map((m, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            <div
+              className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
+                m.role === 'user'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-card card-soft text-card-foreground'
+              }`}
+            >
+              {m.role === 'assistant' ? (
+                <div className="prose prose-sm max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1">
+                  <ReactMarkdown>{m.content}</ReactMarkdown>
+                </div>
+              ) : (
+                m.content
+              )}
+            </div>
+          </motion.div>
+        ))}
+        {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
+          <div className="flex justify-start">
+            <div className="bg-card card-soft rounded-2xl px-4 py-2.5 text-sm text-muted-foreground italic">
+              thinking…
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Input */}
+      <div className="shrink-0 px-5 pb-2 pt-1">
+        <div className="flex items-center gap-2 rounded-2xl bg-card p-2 card-soft">
+          <input
+            type="text"
+            placeholder="Ask about your grades…"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && send()}
+            className="flex-1 bg-transparent px-2 py-2 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
+          />
+          <button
+            onClick={send}
+            disabled={isLoading || !input.trim()}
+            className="rounded-xl bg-primary p-2.5 text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-30"
+          >
+            <Send className="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </div>
   );

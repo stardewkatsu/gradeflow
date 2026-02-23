@@ -1,6 +1,6 @@
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { SUBJECTS, SUBJECT_COLORS } from '@/lib/subjectConfig';
-import { calculateFinalGrade, getGradeLabel } from '@/lib/gradeUtils';
+import { calculateFinalGrade, transmuteGWA, getGradeLabel } from '@/lib/gradeUtils';
 import { GradeMap } from '@/hooks/useGrades';
 import { motion } from 'framer-motion';
 
@@ -12,9 +12,10 @@ export default function GWADonutChart({ grades }: Props) {
   const subjectsWithGrades = SUBJECTS.map(s => {
     const g = grades[s.id];
     const hasBoth = g?.previousGrade != null && g?.tentativeGrade != null;
-    const final = hasBoth
+    const rawFinal = hasBoth
       ? calculateFinalGrade(g.tentativeGrade!, g.previousGrade!)
       : null;
+    const final = rawFinal != null ? transmuteGWA(rawFinal) : null;
     return { ...s, final, color: SUBJECT_COLORS[s.id] };
   });
 

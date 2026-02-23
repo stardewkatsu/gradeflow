@@ -1,6 +1,6 @@
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { SUBJECTS, SUBJECT_COLORS } from '@/lib/subjectConfig';
-import { calculateFinalGrade, transmuteGWA, formatGrade, getGradeLabel } from '@/lib/gradeUtils';
+import { calculateFinalGrade, getGradeLabel } from '@/lib/gradeUtils';
 import { GradeMap } from '@/hooks/useGrades';
 import { motion } from 'framer-motion';
 
@@ -20,11 +20,10 @@ export default function GWADonutChart({ grades }: Props) {
 
   const validGrades = subjectsWithGrades.filter(s => s.final !== null);
 
+  // Raw GWA — no transmutation, just weighted average to 2dp
   const rawGWA = validGrades.length > 0
     ? validGrades.reduce((sum, s) => sum + s.final!, 0) / validGrades.length
     : 0;
-
-  const transmutedGWA = validGrades.length > 0 ? transmuteGWA(rawGWA) : 0;
 
   const chartData = validGrades.length > 0
     ? validGrades.map(s => ({
@@ -72,14 +71,14 @@ export default function GWADonutChart({ grades }: Props) {
           GWA
         </span>
         <span className="text-4xl font-normal text-foreground tabular-nums" style={{ fontFamily: "'Instrument Serif', serif" }}>
-          {validGrades.length > 0 ? formatGrade(transmutedGWA) : '—'}
+          {validGrades.length > 0 ? rawGWA.toFixed(2) : '—'}
         </span>
         {validGrades.length > 0 && (
           <span
             className="text-[10px] font-medium tracking-wide"
-            style={{ color: `hsl(${gradeHSL(transmutedGWA)})` }}
+            style={{ color: `hsl(${gradeHSL(rawGWA)})` }}
           >
-            {getGradeLabel(transmutedGWA)}
+            {getGradeLabel(rawGWA)}
           </span>
         )}
         {validGrades.length === 0 && (

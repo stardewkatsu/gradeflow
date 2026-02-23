@@ -1,5 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { SUBJECTS } from '@/lib/subjectConfig';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from './useAuth';
 
 export interface SubjectGrades {
   previousGrade: number | null;
@@ -7,8 +9,6 @@ export interface SubjectGrades {
 }
 
 export type GradeMap = Record<string, SubjectGrades>;
-
-const STORAGE_KEY = 'gwa-calculator-grades';
 
 function createInitial(): GradeMap {
   const m: GradeMap = {};
@@ -18,42 +18,66 @@ function createInitial(): GradeMap {
   return m;
 }
 
-function loadGrades(): GradeMap {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      const initial = createInitial();
-      // Merge saved with initial to handle new subjects
-      return { ...initial, ...parsed };
-    }
-  } catch { /* ignore */ }
-  return createInitial();
-}
-
 export function useGrades() {
-  const [grades, setGrades] = useState<GradeMap>(loadGrades);
+  const { user } = useAuth();
+  const [grades, setGrades] = useState<GradeMap>(createInitial);
+  const [loaded, setLoaded] = useState(false);
 
-  const updateGrade = useCallback((
+  // Load from DB when user changes
+  useEffect(() => {
+    if (!user) {
+      setGrades(createInitial());
+      setLoaded(false);
+      return;
+    }
+
+    const load = async () => {
+      const { data } = await supabase
+        .from('grades')
+        .select('subject_id, previous_grade, tentative_grade')
+        .eq('user_id', user.id);
+
+      const initial = createInitial();
+      if (data) {
+        data.forEach(row => {
+          initial[row.subject_id] = {
+            previousGrade: row.previous_grade != null ? Number(row.previous_grade) : null,
+            tentativeGrade: row.tentative_grade != null ? Number(row.tentative_grade) : null,
+          };
+        });
+      }
+      setGrades(initial);
+      setLoaded(true);
+    };
+    load();
+  }, [user]);
+
+  const updateGrade = useCallback(async (
     subjectId: string,
     field: 'previousGrade' | 'tentativeGrade',
     value: number | null
   ) => {
-    setGrades(prev => {
-      const next = {
-        ...prev,
-        [subjectId]: { ...prev[subjectId], [field]: value },
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      return next;
-    });
-  }, []);
+    setGrades(prev => ({
+      ...prev,
+      [subjectId]: { ...prev[subjectId], [field]: value },
+    }));
 
-  const resetAll = useCallback(() => {
-    const initial = createInitial();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
-    setGrades(initial);
-  }, []);
+    if (!user) return;
 
-  return { grades, updateGrade, resetAll };
+    const dbField = field === 'previousGrade' ? 'previous_grade' : 'tentative_grade';
+    await supabase.from('grades').upsert({
+      user_id: user.id,
+      subject_id: subjectId,
+      [dbField]: value,
+    }, { onConflict: 'user_id,subject_id' });
+  }, [user]);
+
+  const resetAll = useCallback(async () => {
+    setGrades(createInitial());
+    if (user) {
+      await supabase.from('grades').delete().eq('user_id', user.id);
+    }
+  }, [user]);
+
+  return { grades, updateGrade, resetAll, loaded };
 }

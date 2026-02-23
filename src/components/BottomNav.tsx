@@ -3,9 +3,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
 const tabs = [
-  { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/calculator', icon: Calculator, label: 'Calculator' },
-  { path: '/predictor', icon: Sparkles, label: 'Advisor' },
+  { path: '/', icon: LayoutDashboard, label: 'Home' },
+  { path: '/calculator', icon: Calculator, label: 'Grades' },
+  { path: '/predictor', icon: Sparkles, label: 'Predict' },
 ];
 
 export default function BottomNav() {
@@ -13,31 +13,32 @@ export default function BottomNav() {
   const navigate = useNavigate();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-md safe-area-bottom">
-      <div className="mx-auto flex max-w-lg items-center justify-around py-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/90 backdrop-blur-xl safe-bottom">
+      <div className="mx-auto flex max-w-md items-center justify-around py-1.5 px-2">
         {tabs.map(tab => {
           const active = location.pathname === tab.path;
           return (
             <button
               key={tab.path}
               onClick={() => navigate(tab.path)}
-              className="relative flex flex-col items-center gap-0.5 px-4 py-1.5 transition-colors"
+              className="relative flex flex-col items-center gap-0.5 rounded-2xl px-5 py-2 transition-all duration-200"
             >
               {active && (
                 <motion.div
-                  layoutId="bottomnav-pill"
-                  className="absolute inset-0 rounded-xl bg-primary/10"
-                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  layoutId="nav-bg"
+                  className="absolute inset-0 rounded-2xl bg-primary/8"
+                  transition={{ type: 'spring', stiffness: 500, damping: 35 }}
                 />
               )}
               <tab.icon
-                className={`relative z-10 h-5 w-5 transition-colors ${
-                  active ? 'text-primary' : 'text-muted-foreground'
+                className={`relative z-10 h-[18px] w-[18px] transition-colors duration-200 ${
+                  active ? 'text-primary' : 'text-muted-foreground/60'
                 }`}
+                strokeWidth={active ? 2.2 : 1.8}
               />
               <span
-                className={`relative z-10 text-[10px] font-medium transition-colors ${
-                  active ? 'text-primary' : 'text-muted-foreground'
+                className={`relative z-10 text-[9px] tracking-wide transition-colors duration-200 ${
+                  active ? 'text-primary font-semibold' : 'text-muted-foreground/60 font-medium'
                 }`}
               >
                 {tab.label}

@@ -10,30 +10,28 @@ export default function Dashboard() {
   const { grades, updateGrade } = useGrades();
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-20">
       {/* Header */}
-      <header className="gwa-gradient px-4 pb-8 pt-12 text-center">
-        <h1 className="text-xl font-bold text-primary-foreground tracking-tight">
+      <header className="px-5 pt-14 pb-2 text-center">
+        <h1 className="text-3xl text-foreground tracking-tight">
           GradeFlow
         </h1>
-        <p className="mt-1 text-xs text-primary-foreground/70">
-          Your GWA at a glance
+        <p className="mt-0.5 text-xs text-muted-foreground italic">
+          your grades, beautifully
         </p>
       </header>
 
-      {/* Chart Card */}
-      <div className="-mt-4 px-4">
-        <div className="rounded-2xl bg-card p-4 card-shadow">
-          <GWADonutChart grades={grades} />
-        </div>
+      {/* Chart */}
+      <div className="px-5 py-4">
+        <GWADonutChart grades={grades} />
       </div>
 
       {/* Subject List */}
-      <div className="mt-6 px-4">
-        <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+      <div className="px-5">
+        <p className="mb-3 text-[10px] font-semibold tracking-[0.15em] uppercase text-muted-foreground/70">
           Subjects
-        </h2>
-        <div className="space-y-3">
+        </p>
+        <div className="space-y-2.5">
           {SUBJECTS.map((subject, i) => {
             const g = grades[subject.id];
             const hasBoth = g?.previousGrade != null && g?.tentativeGrade != null;
@@ -45,35 +43,38 @@ export default function Dashboard() {
             return (
               <motion.div
                 key={subject.id}
-                initial={{ opacity: 0, y: 12 }}
+                initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.04 }}
-                className="rounded-xl bg-card p-4 card-shadow"
+                transition={{ delay: i * 0.03, duration: 0.3 }}
+                className="rounded-2xl bg-card p-4 card-soft"
               >
                 <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2.5">
                     <div
-                      className="h-3 w-3 rounded-full"
+                      className="h-2 w-2 rounded-full"
                       style={{ backgroundColor: `hsl(${SUBJECT_COLORS[subject.id]})` }}
                     />
-                    <span className="text-sm font-semibold text-card-foreground">
+                    <span className="text-sm font-medium text-card-foreground">
                       {subject.name}
                     </span>
                   </div>
                   {transmuted != null && (
-                    <span className="text-lg font-bold tabular-nums text-card-foreground">
+                    <span
+                      className="text-xl tabular-nums text-card-foreground"
+                      style={{ fontFamily: "'Instrument Serif', serif" }}
+                    >
                       {formatGrade(transmuted)}
                     </span>
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                      Previous (1/3)
+                    <label className="text-[9px] font-medium text-muted-foreground/70 tracking-wider uppercase">
+                      Previous
                     </label>
                     <select
-                      className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      className="mt-1 w-full rounded-xl border-0 bg-secondary/60 px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 appearance-none"
                       value={g?.previousGrade ?? ''}
                       onChange={e => {
                         const v = e.target.value;
@@ -87,11 +88,11 @@ export default function Dashboard() {
                     </select>
                   </div>
                   <div>
-                    <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                      Tentative (2/3)
+                    <label className="text-[9px] font-medium text-muted-foreground/70 tracking-wider uppercase">
+                      Tentative
                     </label>
                     <select
-                      className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      className="mt-1 w-full rounded-xl border-0 bg-secondary/60 px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 appearance-none"
                       value={g?.tentativeGrade ?? ''}
                       onChange={e => {
                         const v = e.target.value;

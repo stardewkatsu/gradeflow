@@ -1,5 +1,5 @@
 import { SUBJECTS, SUBJECT_COLORS } from '@/lib/subjectConfig';
-import { calculateFinalGrade, formatGrade } from '@/lib/gradeUtils';
+import { calculateFinalGrade, transmuteGWA, formatGrade } from '@/lib/gradeUtils';
 import { useGrades } from '@/hooks/useGrades';
 import { useAuth } from '@/hooks/useAuth';
 import GWADonutChart from '@/components/GWADonutChart';
@@ -40,7 +40,8 @@ export default function Dashboard() {
           {SUBJECTS.map((subject, i) => {
             const g = grades[subject.id];
             const hasBoth = g?.previousGrade != null && g?.tentativeGrade != null;
-            const final = hasBoth ? calculateFinalGrade(g.tentativeGrade!, g.previousGrade!) : null;
+            const rawFinal = hasBoth ? calculateFinalGrade(g.tentativeGrade!, g.previousGrade!) : null;
+            const final = rawFinal != null ? transmuteGWA(rawFinal) : null;
 
             return (
               <motion.div

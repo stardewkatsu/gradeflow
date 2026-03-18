@@ -70,7 +70,7 @@ export function useGrades(setId: string | null) {
       subject_id: subjectId,
       set_id: setId,
       [dbField]: value,
-    }, { onConflict: 'user_id,subject_id' });
+    }, { onConflict: 'user_id,subject_id,set_id' });
   }, [user, setId]);
 
   const resetAll = useCallback(async () => {

@@ -1,16 +1,22 @@
 import { SUBJECTS, SUBJECT_COLORS } from '@/lib/subjectConfig';
 import { calculateFinalGrade, transmuteGWA, formatGrade } from '@/lib/gradeUtils';
 import { useGrades } from '@/hooks/useGrades';
+import { useGWASets } from '@/hooks/useGWASets';
 import { useAuth } from '@/hooks/useAuth';
 import GWADonutChart from '@/components/GWADonutChart';
-import { motion } from 'framer-motion';
-import { LogOut } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { LogOut, Plus, ChevronDown, Trash2, Pencil, Check, X } from 'lucide-react';
+import { useState } from 'react';
 
 const GRADE_OPTIONS = [1.00, 1.25, 1.50, 1.75, 2.00, 2.25, 2.50, 2.75, 3.00, 4.00, 5.00];
 
 export default function Dashboard() {
-  const { grades, updateGrade } = useGrades();
   const { user, signOut } = useAuth();
+  const { sets, activeSetId, setActiveSetId, addSet, renameSet, deleteSet } = useGWASets();
+  const { grades, updateGrade } = useGrades(activeSetId);
+  const [showSetMenu, setShowSetMenu] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
 
   return (
     <div className="min-h-screen pb-20">
@@ -27,6 +33,80 @@ export default function Dashboard() {
           out
         </button>
       </header>
+
+      {/* GWA Set Switcher */}
+      <div className="px-5 pb-2">
+        <div className="relative">
+          <button
+            onClick={() => setShowSetMenu(!showSetMenu)}
+            className="flex items-center gap-2 rounded-xl bg-card px-4 py-2.5 card-soft w-full"
+          >
+            <span className="text-sm font-medium text-foreground flex-1 text-left">
+              {sets.find(s => s.id === activeSetId)?.name || 'Loading…'}
+            </span>
+            <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${showSetMenu ? 'rotate-180' : ''}`} />
+          </button>
+
+          <AnimatePresence>
+            {showSetMenu && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                className="absolute top-full left-0 right-0 mt-1 rounded-xl bg-card card-soft border border-border/50 z-20 overflow-hidden"
+              >
+                {sets.map(s => (
+                  <div key={s.id} className={`flex items-center gap-2 px-4 py-2.5 ${s.id === activeSetId ? 'bg-primary/5' : 'hover:bg-secondary/40'} transition-colors`}>
+                    {editingId === s.id ? (
+                      <>
+                        <input
+                          autoFocus
+                          className="flex-1 text-sm bg-transparent border-0 outline-none text-foreground"
+                          value={editName}
+                          onChange={e => setEditName(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') { renameSet(s.id, editName); setEditingId(null); }
+                            if (e.key === 'Escape') setEditingId(null);
+                          }}
+                        />
+                        <button onClick={() => { renameSet(s.id, editName); setEditingId(null); }} className="p-1 text-primary"><Check className="h-3 w-3" /></button>
+                        <button onClick={() => setEditingId(null)} className="p-1 text-muted-foreground"><X className="h-3 w-3" /></button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          className="flex-1 text-left text-sm text-foreground"
+                          onClick={() => { setActiveSetId(s.id); setShowSetMenu(false); }}
+                        >
+                          {s.name}
+                        </button>
+                        <button onClick={() => { setEditingId(s.id); setEditName(s.name); }} className="p-1 text-muted-foreground/50 hover:text-foreground">
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                        {sets.length > 1 && (
+                          <button onClick={() => deleteSet(s.id)} className="p-1 text-muted-foreground/50 hover:text-destructive">
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                ))}
+                <button
+                  onClick={async () => {
+                    await addSet(`Quarter ${sets.length + 1}`);
+                    setShowSetMenu(false);
+                  }}
+                  className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-primary/70 hover:text-primary hover:bg-primary/5 transition-colors border-t border-border/30"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add new set
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
 
       <div className="px-5 py-4">
         <GWADonutChart grades={grades} />

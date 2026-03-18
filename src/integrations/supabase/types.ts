@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           id: string
           previous_grade: number | null
+          set_id: string | null
           subject_id: string
           tentative_grade: number | null
           updated_at: string
@@ -26,6 +27,7 @@ export type Database = {
         Insert: {
           id?: string
           previous_grade?: number | null
+          set_id?: string | null
           subject_id: string
           tentative_grade?: number | null
           updated_at?: string
@@ -34,9 +36,39 @@ export type Database = {
         Update: {
           id?: string
           previous_grade?: number | null
+          set_id?: string | null
           subject_id?: string
           tentative_grade?: number | null
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grades_set_id_fkey"
+            columns: ["set_id"]
+            isOneToOne: false
+            referencedRelation: "gwa_sets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gwa_sets: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
           user_id?: string
         }
         Relationships: []

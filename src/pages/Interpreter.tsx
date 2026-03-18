@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { AlertTriangle, TrendingDown, TrendingUp, Star } from 'lucide-react';
 
 export default function Interpreter() {
-  const { grades } = useGrades();
+  const { grades } = useGrades(null);
 
   const analyzed = SUBJECTS.map(s => {
     const g = grades[s.id];

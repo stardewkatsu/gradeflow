@@ -20,44 +20,66 @@ interface SubScores {
 }
 
 const defaultEntry = (): AssessmentEntry => ({
-  mode: 'single',
+  mode: 'items',
   single: '',
-  items: [],
+  items: [{ score: '', total: '' }],
 });
 
 export default function SubjectCalculator() {
   const [selectedId, setSelectedId] = useState(SUBJECTS[0].id);
   const [allScores, setAllScores] = useState<Record<string, SubScores>>({});
+  const [bonuses, setBonuses] = useState<Record<string, string>>({});
 
   const subject = SUBJECTS.find(s => s.id === selectedId)!;
   const subjectScores = allScores[selectedId] || {};
+  const bonus = parseFloat(bonuses[selectedId] || '') || 0;
 
-  const getAssessmentValue = (name: string): number | null => {
+  const getAssessmentData = (name: string, weight: number) => {
     const entry = subjectScores[name] || defaultEntry();
 
-    if (entry.mode === 'items' && entry.items.length > 0) {
+    let totalScore = 0;
+    let totalPossible = 0;
+    let pctEquivalent: number | null = null;
+    let percentage: number | null = null;
+
+    if (entry.mode === 'items') {
       const valid = entry.items.filter(
         i => i.score !== '' && i.total !== '' && !isNaN(Number(i.score)) && !isNaN(Number(i.total)) && Number(i.total) > 0
       );
-      if (valid.length === 0) return null;
-      const totalScore = valid.reduce((s, i) => s + Number(i.score), 0);
-      const totalPossible = valid.reduce((s, i) => s + Number(i.total), 0);
-      return (totalScore / totalPossible) * 100;
+      if (valid.length > 0) {
+        totalScore = valid.reduce((s, i) => s + Number(i.score), 0);
+        totalPossible = valid.reduce((s, i) => s + Number(i.total), 0);
+        pctEquivalent = totalScore / totalPossible;
+        percentage = pctEquivalent * (weight * 100);
+      }
+    } else {
+      if (entry.single && !isNaN(parseFloat(entry.single))) {
+        pctEquivalent = parseFloat(entry.single) / 100;
+        percentage = pctEquivalent * (weight * 100);
+      }
     }
 
-    if (entry.single && !isNaN(parseFloat(entry.single))) {
-      return parseFloat(entry.single);
-    }
-    return null;
+    return {
+      entry,
+      totalScore,
+      totalPossible,
+      pctEquivalent,
+      percentage,
+      rawScore: totalPossible > 0 ? `${totalScore} / ${totalPossible}` : '—',
+    };
   };
 
-  const allFilled = subject.assessments.every(a => getAssessmentValue(a.name) !== null);
+  const assessmentData = subject.assessments.map(a => ({
+    ...a,
+    ...getAssessmentData(a.name, a.weight),
+  }));
 
-  const weightedPercent = allFilled
-    ? subject.assessments.reduce((sum, a) => sum + getAssessmentValue(a.name)! * a.weight, 0)
+  const allFilled = assessmentData.every(a => a.pctEquivalent !== null);
+  const subtotal = allFilled
+    ? assessmentData.reduce((sum, a) => sum + a.percentage!, 0)
     : null;
-
-  const grade = weightedPercent != null ? percentToGrade(weightedPercent) : null;
+  const total = subtotal !== null ? subtotal + bonus : null;
+  const tentativeGrade = total !== null ? percentToGrade(total) : null;
 
   const updateEntry = (name: string, update: Partial<AssessmentEntry>) => {
     setAllScores(prev => ({
@@ -76,12 +98,8 @@ export default function SubjectCalculator() {
   return (
     <div className="min-h-screen pb-20">
       <header className="px-5 pt-14 pb-2 text-center">
-        <h1 className="text-3xl text-foreground tracking-tight">
-          Calculator
-        </h1>
-        <p className="mt-0.5 text-xs text-muted-foreground italic">
-          compute per subject
-        </p>
+        <h1 className="text-3xl text-foreground tracking-tight">Calculator</h1>
+        <p className="mt-0.5 text-xs text-muted-foreground italic">compute per subject</p>
       </header>
 
       <div className="px-5 pt-4 space-y-3">
@@ -101,7 +119,7 @@ export default function SubjectCalculator() {
           </select>
         </div>
 
-        {/* Assessment inputs */}
+        {/* Grade Table */}
         <AnimatePresence mode="wait">
           <motion.div
             key={selectedId}
@@ -109,163 +127,168 @@ export default function SubjectCalculator() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.25 }}
-            className="rounded-2xl bg-card p-4 card-soft"
+            className="rounded-2xl bg-card card-soft overflow-hidden"
           >
-            <p className="mb-4 text-[9px] font-semibold text-muted-foreground/70 tracking-[0.15em] uppercase">
-              Assessments
-            </p>
-            <div className="space-y-4">
-              {subject.assessments.map(a => {
-                const entry = subjectScores[a.name] || defaultEntry();
-                const pct = getAssessmentValue(a.name);
-
-                // Compute totals for items mode
-                const validItems = entry.items.filter(
-                  i => i.score !== '' && i.total !== '' && !isNaN(Number(i.score)) && !isNaN(Number(i.total)) && Number(i.total) > 0
-                );
-                const totalScore = validItems.reduce((s, i) => s + Number(i.score), 0);
-                const totalPossible = validItems.reduce((s, i) => s + Number(i.total), 0);
-
-                return (
-                  <div key={a.name}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-xs text-muted-foreground">
-                        {a.name}
-                        <span className="ml-1 text-[10px] text-muted-foreground/50">
-                          {(a.weight * 100).toFixed(0)}%
-                        </span>
-                      </label>
-                      <button
-                        onClick={() => {
-                          const newMode = entry.mode === 'items' ? 'single' : 'items';
-                          updateEntry(a.name, {
-                            mode: newMode,
-                            items: newMode === 'items' && entry.items.length === 0
-                              ? [{ score: '', total: '' }, { score: '', total: '' }]
-                              : entry.items,
-                          });
-                        }}
-                        className="text-[9px] font-medium text-primary/70 hover:text-primary transition-colors"
-                      >
-                        {entry.mode === 'items' ? 'use total %' : 'add items'}
-                      </button>
-                    </div>
-
-                    {entry.mode === 'single' ? (
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        placeholder="0–100"
-                        className="w-full rounded-xl border-0 bg-secondary/60 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/30"
-                        value={entry.single || ''}
-                        onChange={e => updateEntry(a.name, { single: e.target.value })}
-                      />
-                    ) : (
-                      <div className="space-y-1.5">
-                        {entry.items.map((item, idx) => (
-                          <div key={idx} className="flex items-center gap-1.5">
-                            <span className="text-[9px] text-muted-foreground/50 w-4 text-right tabular-nums shrink-0">
-                              {idx + 1}
-                            </span>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              placeholder="score"
-                              className="flex-1 rounded-xl border-0 bg-secondary/60 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/30"
-                              value={item.score}
-                              onChange={e => {
-                                const newItems = [...entry.items];
-                                newItems[idx] = { ...newItems[idx], score: e.target.value };
-                                updateEntry(a.name, { items: newItems });
-                              }}
-                            />
-                            <span className="text-muted-foreground/40 text-xs">/</span>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              placeholder="total"
-                              className="flex-1 rounded-xl border-0 bg-secondary/60 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/30"
-                              value={item.total}
-                              onChange={e => {
-                                const newItems = [...entry.items];
-                                newItems[idx] = { ...newItems[idx], total: e.target.value };
-                                updateEntry(a.name, { items: newItems });
-                              }}
-                            />
-                            {entry.items.length > 1 && (
-                              <button
-                                onClick={() => {
-                                  const newItems = entry.items.filter((_, j) => j !== idx);
-                                  updateEntry(a.name, { items: newItems });
-                                }}
-                                className="p-1 text-muted-foreground/40 hover:text-destructive transition-colors shrink-0"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                        <button
-                          onClick={() => updateEntry(a.name, { items: [...entry.items, { score: '', total: '' }] })}
-                          className="flex items-center gap-1 text-[10px] font-medium text-primary/60 hover:text-primary transition-colors py-1"
-                        >
-                          <Plus className="h-3 w-3" />
-                          add item
-                        </button>
-                        {validItems.length > 0 && (
-                          <div className="flex items-center justify-between rounded-lg bg-secondary/40 px-3 py-1.5">
-                            <span className="text-[10px] font-medium text-muted-foreground/70">
-                              Total: {totalScore}/{totalPossible}
-                            </span>
-                            <span className="text-[10px] font-semibold text-foreground/80 tabular-nums">
-                              {pct !== null ? `${pct.toFixed(1)}%` : '—'}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+            {/* Table Header */}
+            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-1 px-4 py-3 border-b border-border/30">
+              <span className="text-[9px] font-semibold text-muted-foreground/70 tracking-[0.12em] uppercase">Component</span>
+              <span className="text-[9px] font-semibold text-muted-foreground/70 tracking-[0.12em] uppercase text-right w-16">Raw</span>
+              <span className="text-[9px] font-semibold text-muted-foreground/70 tracking-[0.12em] uppercase text-right w-14">% Eq</span>
+              <span className="text-[9px] font-semibold text-muted-foreground/70 tracking-[0.12em] uppercase text-right w-16">Pctg</span>
             </div>
-          </motion.div>
-        </AnimatePresence>
 
-        {/* Result */}
-        <AnimatePresence>
-          {weightedPercent != null && grade != null && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.97 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              className="rounded-2xl bg-card p-5 card-soft text-center"
-            >
-              <p className="text-[9px] font-semibold text-muted-foreground/70 tracking-[0.15em] uppercase">
-                Result
-              </p>
-              <p
-                className="mt-2 text-4xl tabular-nums text-foreground"
-                style={{ fontFamily: "'Instrument Serif', serif" }}
-              >
-                {weightedPercent.toFixed(1)}%
-              </p>
-              <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-primary/8 px-4 py-1.5">
-                <span
-                  className="text-lg tabular-nums text-primary"
-                  style={{ fontFamily: "'Instrument Serif', serif" }}
-                >
-                  {formatGrade(grade)}
-                </span>
-                <span className="text-[10px] font-medium text-primary/70">
-                  {getGradeLabel(grade)}
+            {/* Assessment Rows */}
+            {assessmentData.map((a, idx) => (
+              <div key={a.name} className={`px-4 py-3 ${idx < assessmentData.length - 1 ? 'border-b border-border/20' : ''}`}>
+                {/* Row summary */}
+                <div className="grid grid-cols-[1fr_auto_auto_auto] gap-1 items-center">
+                  <span className="text-xs font-medium text-card-foreground">
+                    {a.name}
+                    <span className="ml-1 text-[10px] text-muted-foreground/50">({(a.weight * 100).toFixed(0)}%)</span>
+                  </span>
+                  <span className="text-xs tabular-nums text-card-foreground text-right w-16">{a.rawScore}</span>
+                  <span className="text-xs tabular-nums text-card-foreground text-right w-14">
+                    {a.pctEquivalent !== null ? a.pctEquivalent.toFixed(4) : '—'}
+                  </span>
+                  <span className="text-xs tabular-nums font-medium text-card-foreground text-right w-16">
+                    {a.percentage !== null ? a.percentage.toFixed(4) : '—'}
+                  </span>
+                </div>
+
+                {/* Score items input */}
+                <div className="mt-2 space-y-1.5">
+                  <div className="flex items-center justify-end mb-1">
+                    <button
+                      onClick={() => {
+                        const newMode = a.entry.mode === 'items' ? 'single' : 'items';
+                        updateEntry(a.name, {
+                          mode: newMode,
+                          items: newMode === 'items' && a.entry.items.length === 0
+                            ? [{ score: '', total: '' }]
+                            : a.entry.items,
+                        });
+                      }}
+                      className="text-[9px] font-medium text-primary/70 hover:text-primary transition-colors"
+                    >
+                      {a.entry.mode === 'items' ? 'use total %' : 'add items'}
+                    </button>
+                  </div>
+
+                  {a.entry.mode === 'single' ? (
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      placeholder="0–100 %"
+                      className="w-full rounded-xl border-0 bg-secondary/60 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                      value={a.entry.single || ''}
+                      onChange={e => updateEntry(a.name, { single: e.target.value })}
+                    />
+                  ) : (
+                    <>
+                      {a.entry.items.map((item, idx2) => (
+                        <div key={idx2} className="flex items-center gap-1.5">
+                          <span className="text-[9px] text-muted-foreground/50 w-4 text-right tabular-nums shrink-0">{idx2 + 1}</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="score"
+                            className="flex-1 rounded-lg border-0 bg-secondary/60 px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                            value={item.score}
+                            onChange={e => {
+                              const newItems = [...a.entry.items];
+                              newItems[idx2] = { ...newItems[idx2], score: e.target.value };
+                              updateEntry(a.name, { items: newItems });
+                            }}
+                          />
+                          <span className="text-muted-foreground/40 text-xs">/</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="total"
+                            className="flex-1 rounded-lg border-0 bg-secondary/60 px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                            value={item.total}
+                            onChange={e => {
+                              const newItems = [...a.entry.items];
+                              newItems[idx2] = { ...newItems[idx2], total: e.target.value };
+                              updateEntry(a.name, { items: newItems });
+                            }}
+                          />
+                          {a.entry.items.length > 1 && (
+                            <button
+                              onClick={() => {
+                                const newItems = a.entry.items.filter((_, j) => j !== idx2);
+                                updateEntry(a.name, { items: newItems });
+                              }}
+                              className="p-1 text-muted-foreground/40 hover:text-destructive transition-colors shrink-0"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button
+                        onClick={() => updateEntry(a.name, { items: [...a.entry.items, { score: '', total: '' }] })}
+                        className="flex items-center gap-1 text-[10px] font-medium text-primary/60 hover:text-primary transition-colors py-0.5"
+                      >
+                        <Plus className="h-3 w-3" />
+                        add item
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {/* Subtotal, Bonus, Total */}
+            <div className="border-t border-border/40">
+              <div className="grid grid-cols-[1fr_auto] gap-1 px-4 py-2.5">
+                <span className="text-xs font-semibold text-card-foreground text-right">Subtotal</span>
+                <span className="text-xs font-semibold tabular-nums text-card-foreground text-right w-16">
+                  {subtotal !== null ? subtotal.toFixed(4) : '—'}
                 </span>
               </div>
-            </motion.div>
-          )}
+              <div className="grid grid-cols-[1fr_auto] gap-1 px-4 py-2 items-center">
+                <span className="text-xs font-medium text-muted-foreground text-right">Bonus</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0"
+                  className="w-16 rounded-lg border-0 bg-secondary/60 px-2.5 py-1.5 text-xs text-foreground text-right tabular-nums placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                  value={bonuses[selectedId] || ''}
+                  onChange={e => setBonuses(prev => ({ ...prev, [selectedId]: e.target.value }))}
+                />
+              </div>
+              <div className="grid grid-cols-[1fr_auto] gap-1 px-4 py-2.5 bg-primary/5">
+                <span className="text-xs font-bold text-card-foreground text-right">Total</span>
+                <span className="text-xs font-bold tabular-nums text-card-foreground text-right w-16">
+                  {total !== null ? total.toFixed(4) : '—'}
+                </span>
+              </div>
+            </div>
+
+            {/* Tentative Grade */}
+            {tentativeGrade !== null && (
+              <div className="border-t border-border/40 bg-primary/8 px-4 py-4">
+                <div className="grid grid-cols-[1fr_auto] gap-1 items-center">
+                  <span className="text-xs font-bold text-card-foreground text-right">Tentative Quarter Grade</span>
+                  <span
+                    className="text-2xl font-normal tabular-nums text-primary text-right w-16"
+                    style={{ fontFamily: "'Instrument Serif', serif" }}
+                  >
+                    {formatGrade(tentativeGrade)}
+                  </span>
+                </div>
+                <p className="text-right text-[10px] text-muted-foreground/60 mt-1">
+                  {getGradeLabel(tentativeGrade)}
+                </p>
+              </div>
+            )}
+          </motion.div>
         </AnimatePresence>
       </div>
     </div>

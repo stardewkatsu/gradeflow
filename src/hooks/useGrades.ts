@@ -18,14 +18,13 @@ function createInitial(): GradeMap {
   return m;
 }
 
-export function useGrades() {
+export function useGrades(setId: string | null) {
   const { user } = useAuth();
   const [grades, setGrades] = useState<GradeMap>(createInitial);
   const [loaded, setLoaded] = useState(false);
 
-  // Load from DB when user changes
   useEffect(() => {
-    if (!user) {
+    if (!user || !setId) {
       setGrades(createInitial());
       setLoaded(false);
       return;
@@ -35,7 +34,8 @@ export function useGrades() {
       const { data } = await supabase
         .from('grades')
         .select('subject_id, previous_grade, tentative_grade')
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .eq('set_id', setId);
 
       const initial = createInitial();
       if (data) {
@@ -50,7 +50,7 @@ export function useGrades() {
       setLoaded(true);
     };
     load();
-  }, [user]);
+  }, [user, setId]);
 
   const updateGrade = useCallback(async (
     subjectId: string,
@@ -62,22 +62,23 @@ export function useGrades() {
       [subjectId]: { ...prev[subjectId], [field]: value },
     }));
 
-    if (!user) return;
+    if (!user || !setId) return;
 
     const dbField = field === 'previousGrade' ? 'previous_grade' : 'tentative_grade';
     await supabase.from('grades').upsert({
       user_id: user.id,
       subject_id: subjectId,
+      set_id: setId,
       [dbField]: value,
-    }, { onConflict: 'user_id,subject_id' });
-  }, [user]);
+    }, { onConflict: 'user_id,subject_id,set_id' });
+  }, [user, setId]);
 
   const resetAll = useCallback(async () => {
     setGrades(createInitial());
-    if (user) {
-      await supabase.from('grades').delete().eq('user_id', user.id);
+    if (user && setId) {
+      await supabase.from('grades').delete().eq('user_id', user.id).eq('set_id', setId);
     }
-  }, [user]);
+  }, [user, setId]);
 
   return { grades, updateGrade, resetAll, loaded };
 }

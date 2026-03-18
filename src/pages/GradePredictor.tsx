@@ -23,7 +23,7 @@ function buildGradeContext(grades: ReturnType<typeof useGrades>['grades']): stri
 }
 
 export default function GradePredictor() {
-  const { grades } = useGrades();
+  const { grades } = useGrades(null);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);

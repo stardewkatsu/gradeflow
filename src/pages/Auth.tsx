@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
@@ -21,7 +20,7 @@ export default function Auth() {
       } else {
         const { error } = await signUp(email, password, displayName);
         if (error) throw error;
-        toast.success('Check your email to confirm your account ✉️');
+        toast.success('Check your email to confirm your account');
       }
     } catch (err: any) {
       toast.error(err.message || 'Something went wrong');
@@ -32,65 +31,51 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-5 bg-background">
-      <motion.div
-        initial={{ opacity: 0, y: 20, scale: 0.96 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
-        className="w-full max-w-sm"
-      >
+      <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <span className="text-5xl block mb-2">🌸</span>
-          <h1 className="text-4xl text-foreground tracking-tight">
+          <h1 className="text-[34px] font-bold tracking-tight text-foreground">
             GradeFlow
           </h1>
-          <p className="text-xs text-muted-foreground italic mt-1">
-            your grades, beautifully ✨
+          <p className="text-[15px] text-muted-foreground mt-1">
+            Track your grades
           </p>
         </div>
 
-        <div className="rounded-3xl bg-card p-6 card-cute">
-          <div className="flex mb-6 rounded-2xl bg-secondary/60 p-1">
+        <div className="card-ios p-5">
+          {/* Segmented control */}
+          <div className="flex mb-5 rounded-lg bg-secondary p-0.5">
             {(['login', 'signup'] as const).map(m => (
               <button
                 key={m}
                 onClick={() => setMode(m)}
-                className={`relative flex-1 py-2.5 text-xs font-medium rounded-xl transition-all duration-300 ${
+                className={`flex-1 py-2 text-[13px] font-semibold rounded-md transition-all ${
                   mode === m
-                    ? 'bg-card text-foreground card-cute'
-                    : 'text-muted-foreground hover:text-foreground/70'
+                    ? 'bg-card text-foreground shadow-sm'
+                    : 'text-muted-foreground'
                 }`}
               >
-                {m === 'login' ? '✦ Sign in' : '✦ Sign up'}
+                {m === 'login' ? 'Sign In' : 'Sign Up'}
               </button>
             ))}
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-3">
-            <AnimatePresence mode="wait">
-              {mode === 'signup' && (
-                <motion.div
-                  key="name"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                >
-                  <input
-                    type="text"
-                    placeholder="Your name 💫"
-                    value={displayName}
-                    onChange={e => setDisplayName(e.target.value)}
-                    className="w-full rounded-2xl border-0 bg-secondary/50 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow"
-                    required
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {mode === 'signup' && (
+              <input
+                type="text"
+                placeholder="Name"
+                value={displayName}
+                onChange={e => setDisplayName(e.target.value)}
+                className="w-full rounded-lg bg-secondary px-4 py-3 text-[15px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                required
+              />
+            )}
             <input
               type="email"
               placeholder="Email"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              className="w-full rounded-2xl border-0 bg-secondary/50 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow"
+              className="w-full rounded-lg bg-secondary px-4 py-3 text-[15px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
               required
             />
             <input
@@ -98,20 +83,20 @@ export default function Auth() {
               placeholder="Password"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              className="w-full rounded-2xl border-0 bg-secondary/50 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow"
+              className="w-full rounded-lg bg-secondary px-4 py-3 text-[15px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
               required
               minLength={6}
             />
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-2xl bg-primary py-3 text-sm font-semibold text-primary-foreground hover:brightness-105 active:scale-[0.98] transition-all disabled:opacity-50"
+              className="w-full rounded-lg bg-primary py-3 text-[15px] font-semibold text-primary-foreground active:opacity-80 transition-opacity disabled:opacity-50"
             >
-              {loading ? '...' : mode === 'login' ? 'Sign in →' : 'Create account →'}
+              {loading ? '…' : mode === 'login' ? 'Sign In' : 'Create Account'}
             </button>
           </form>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

@@ -21,7 +21,7 @@ export default function Auth() {
       } else {
         const { error } = await signUp(email, password, displayName);
         if (error) throw error;
-        toast.success('Check your email to confirm your account');
+        toast.success('Check your email to confirm your account ✉️');
       }
     } catch (err: any) {
       toast.error(err.message || 'Something went wrong');
@@ -31,32 +31,36 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-5">
+    <div className="min-h-screen flex flex-col items-center justify-center px-5 bg-background">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, y: 20, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
         className="w-full max-w-sm"
       >
-        <h1 className="text-4xl text-foreground tracking-tight text-center mb-1">
-          GradeFlow
-        </h1>
-        <p className="text-xs text-muted-foreground italic text-center mb-8">
-          your grades, beautifully
-        </p>
+        <div className="text-center mb-8">
+          <span className="text-5xl block mb-2">🌸</span>
+          <h1 className="text-4xl text-foreground tracking-tight">
+            GradeFlow
+          </h1>
+          <p className="text-xs text-muted-foreground italic mt-1">
+            your grades, beautifully ✨
+          </p>
+        </div>
 
-        <div className="rounded-2xl bg-card p-6 card-soft">
-          <div className="flex mb-6 rounded-xl bg-secondary/60 p-0.5">
+        <div className="rounded-3xl bg-card p-6 card-cute">
+          <div className="flex mb-6 rounded-2xl bg-secondary/60 p-1">
             {(['login', 'signup'] as const).map(m => (
               <button
                 key={m}
                 onClick={() => setMode(m)}
-                className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all ${
+                className={`relative flex-1 py-2.5 text-xs font-medium rounded-xl transition-all duration-300 ${
                   mode === m
-                    ? 'bg-card text-foreground card-soft'
-                    : 'text-muted-foreground'
+                    ? 'bg-card text-foreground card-cute'
+                    : 'text-muted-foreground hover:text-foreground/70'
                 }`}
               >
-                {m === 'login' ? 'Sign in' : 'Sign up'}
+                {m === 'login' ? '✦ Sign in' : '✦ Sign up'}
               </button>
             ))}
           </div>
@@ -72,10 +76,10 @@ export default function Auth() {
                 >
                   <input
                     type="text"
-                    placeholder="Display name"
+                    placeholder="Your name 💫"
                     value={displayName}
                     onChange={e => setDisplayName(e.target.value)}
-                    className="w-full rounded-xl border-0 bg-secondary/60 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                    className="w-full rounded-2xl border-0 bg-secondary/50 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow"
                     required
                   />
                 </motion.div>
@@ -86,7 +90,7 @@ export default function Auth() {
               placeholder="Email"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              className="w-full rounded-xl border-0 bg-secondary/60 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/30"
+              className="w-full rounded-2xl border-0 bg-secondary/50 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow"
               required
             />
             <input
@@ -94,16 +98,16 @@ export default function Auth() {
               placeholder="Password"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              className="w-full rounded-xl border-0 bg-secondary/60 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/30"
+              className="w-full rounded-2xl border-0 bg-secondary/50 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow"
               required
               minLength={6}
             />
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="w-full rounded-2xl bg-primary py-3 text-sm font-semibold text-primary-foreground hover:brightness-105 active:scale-[0.98] transition-all disabled:opacity-50"
             >
-              {loading ? '...' : mode === 'login' ? 'Sign in' : 'Create account'}
+              {loading ? '...' : mode === 'login' ? 'Sign in →' : 'Create account →'}
             </button>
           </form>
         </div>

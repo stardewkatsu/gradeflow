@@ -21,7 +21,6 @@ export default function GWADonutChart({ grades }: Props) {
 
   const validGrades = subjectsWithGrades.filter(s => s.final !== null);
 
-  // Raw GWA — no transmutation, just weighted average to 2dp
   const rawGWA = validGrades.length > 0
     ? validGrades.reduce((sum, s) => sum + s.final!, 0) / validGrades.length
     : 0;
@@ -35,30 +34,30 @@ export default function GWADonutChart({ grades }: Props) {
     : SUBJECTS.map(s => ({
         name: s.name,
         value: 1,
-        color: `hsl(${SUBJECT_COLORS[s.id]} / 0.15)`,
+        color: `hsl(${SUBJECT_COLORS[s.id]} / 0.12)`,
       }));
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.6 }}
-      className="relative mx-auto w-full max-w-[240px]"
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.6, ease: 'easeOut' }}
+      className="relative mx-auto w-full max-w-[220px]"
     >
-      <ResponsiveContainer width="100%" height={240}>
+      <ResponsiveContainer width="100%" height={220}>
         <PieChart>
           <Pie
             data={chartData}
             cx="50%"
             cy="50%"
-            innerRadius={72}
-            outerRadius={100}
-            paddingAngle={3}
+            innerRadius={68}
+            outerRadius={95}
+            paddingAngle={4}
             dataKey="value"
             animationBegin={100}
             animationDuration={900}
             stroke="none"
-            cornerRadius={4}
+            cornerRadius={6}
           >
             {chartData.map((entry, i) => (
               <Cell key={i} fill={entry.color} />
@@ -68,7 +67,7 @@ export default function GWADonutChart({ grades }: Props) {
       </ResponsiveContainer>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-        <span className="text-[10px] font-medium tracking-[0.2em] uppercase text-muted-foreground">
+        <span className="text-[10px] font-semibold tracking-[0.2em] uppercase text-muted-foreground/60">
           GWA
         </span>
         <span className="text-4xl font-normal text-foreground tabular-nums" style={{ fontFamily: "'Instrument Serif', serif" }}>
@@ -76,15 +75,15 @@ export default function GWADonutChart({ grades }: Props) {
         </span>
         {validGrades.length > 0 && (
           <span
-            className="text-[10px] font-medium tracking-wide"
+            className="text-[10px] font-semibold tracking-wide"
             style={{ color: `hsl(${gradeHSL(rawGWA)})` }}
           >
             {getGradeLabel(rawGWA)}
           </span>
         )}
         {validGrades.length === 0 && (
-          <span className="text-[9px] text-muted-foreground/60 italic mt-0.5">
-            add grades below
+          <span className="text-[9px] text-muted-foreground/50 italic mt-0.5">
+            add grades below ✨
           </span>
         )}
       </div>

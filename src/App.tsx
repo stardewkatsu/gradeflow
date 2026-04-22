@@ -2,8 +2,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { GWASetProvider } from "@/contexts/GWASetContext";
 import Dashboard from "./pages/Dashboard";
 import SubjectCalculator from "./pages/SubjectCalculator";
 import GradePredictor from "./pages/GradePredictor";
@@ -20,7 +21,10 @@ function AppRoutes() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-sm text-muted-foreground italic">loading…</p>
+        <div className="text-center space-y-2">
+          <span className="text-3xl">🌸</span>
+          <p className="text-sm text-muted-foreground italic">loading…</p>
+        </div>
       </div>
     );
   }
@@ -30,7 +34,7 @@ function AppRoutes() {
   }
 
   return (
-    <>
+    <GWASetProvider>
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/calculator" element={<SubjectCalculator />} />
@@ -39,7 +43,7 @@ function AppRoutes() {
         <Route path="*" element={<NotFound />} />
       </Routes>
       <BottomNav />
-    </>
+    </GWASetProvider>
   );
 }
 

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useGrades } from '@/hooks/useGrades';
+import { useGWASetContext } from '@/contexts/GWASetContext';
 import { SUBJECTS } from '@/lib/subjectConfig';
 import { calculateFinalGrade, formatGrade } from '@/lib/gradeUtils';
 import { Send, Sparkles } from 'lucide-react';
@@ -23,7 +24,8 @@ function buildGradeContext(grades: ReturnType<typeof useGrades>['grades']): stri
 }
 
 export default function GradePredictor() {
-  const { grades } = useGrades(null);
+  const { activeSetId } = useGWASetContext();
+  const { grades } = useGrades(activeSetId);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -112,18 +114,18 @@ export default function GradePredictor() {
     <div className="flex flex-col h-screen pb-16">
       <header className="px-5 pt-14 pb-2 text-center shrink-0">
         <div className="inline-flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-accent" strokeWidth={1.8} />
+          <span className="text-xl">✨</span>
           <h1 className="text-3xl text-foreground tracking-tight">Ask AI</h1>
         </div>
-        <p className="mt-0.5 text-xs text-muted-foreground italic">
+        <p className="mt-0.5 text-[11px] text-muted-foreground italic">
           ask about your grades
         </p>
       </header>
 
-      {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-3 space-y-3">
         {messages.length === 0 && (
           <div className="text-center pt-8 space-y-3">
+            <span className="text-4xl block">🤖</span>
             <p className="text-sm text-muted-foreground italic">try asking…</p>
             {[
               'What grade do I need in LT2 to get 2.00 in Physics?',
@@ -132,8 +134,8 @@ export default function GradePredictor() {
             ].map((q, i) => (
               <button
                 key={i}
-                onClick={() => { setInput(q); }}
-                className="block mx-auto text-xs text-primary/70 hover:text-primary bg-primary/5 rounded-xl px-3 py-2 transition-colors"
+                onClick={() => setInput(q)}
+                className="block mx-auto text-xs text-primary/70 hover:text-primary bg-primary/5 hover:bg-primary/10 rounded-2xl px-4 py-2.5 transition-all active:scale-95"
               >
                 "{q}"
               </button>
@@ -148,10 +150,10 @@ export default function GradePredictor() {
             className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
+              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
                 m.role === 'user'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-card card-soft text-card-foreground'
+                  ? 'bg-primary text-primary-foreground rounded-br-lg'
+                  : 'bg-card card-cute text-card-foreground rounded-bl-lg'
               }`}
             >
               {m.role === 'assistant' ? (
@@ -166,28 +168,27 @@ export default function GradePredictor() {
         ))}
         {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
           <div className="flex justify-start">
-            <div className="bg-card card-soft rounded-2xl px-4 py-2.5 text-sm text-muted-foreground italic">
-              thinking…
+            <div className="bg-card card-cute rounded-2xl px-4 py-3 text-sm text-muted-foreground italic">
+              thinking… 💭
             </div>
           </div>
         )}
       </div>
 
-      {/* Input */}
       <div className="shrink-0 px-5 pb-2 pt-1">
-        <div className="flex items-center gap-2 rounded-2xl bg-card p-2 card-soft">
+        <div className="flex items-center gap-2 rounded-2xl bg-card p-2 card-cute">
           <input
             type="text"
             placeholder="Ask about your grades…"
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && send()}
-            className="flex-1 bg-transparent px-2 py-2 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
+            className="flex-1 bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/30 focus:outline-none"
           />
           <button
             onClick={send}
             disabled={isLoading || !input.trim()}
-            className="rounded-xl bg-primary p-2.5 text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-30"
+            className="rounded-xl bg-primary p-2.5 text-primary-foreground hover:brightness-105 active:scale-95 transition-all disabled:opacity-30"
           >
             <Send className="h-4 w-4" />
           </button>

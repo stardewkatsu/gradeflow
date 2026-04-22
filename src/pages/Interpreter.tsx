@@ -2,7 +2,6 @@ import { SUBJECTS, SUBJECT_COLORS } from '@/lib/subjectConfig';
 import { calculateFinalGrade, formatGrade, getGradeLabel } from '@/lib/gradeUtils';
 import { useGrades } from '@/hooks/useGrades';
 import { useGWASetContext } from '@/contexts/GWASetContext';
-import { motion } from 'framer-motion';
 import { AlertTriangle, TrendingDown, Star } from 'lucide-react';
 
 export default function Interpreter() {
@@ -25,13 +24,12 @@ export default function Interpreter() {
   if (analyzed.length === 0) {
     return (
       <div className="min-h-screen pb-24">
-        <header className="px-5 pt-14 pb-2 text-center">
-          <h1 className="text-3xl text-foreground tracking-tight">Insights 🔍</h1>
-          <p className="mt-0.5 text-[11px] text-muted-foreground italic">what to focus on</p>
+        <header className="px-4 pt-14 pb-2">
+          <h1 className="text-[28px] font-bold tracking-tight text-foreground">Insights</h1>
+          <p className="text-[13px] text-muted-foreground mt-0.5">What to focus on</p>
         </header>
-        <div className="px-5 pt-8 text-center">
-          <span className="text-4xl block mb-3">📝</span>
-          <p className="text-sm text-muted-foreground italic">add grades on the dashboard first</p>
+        <div className="px-4 pt-10 text-center">
+          <p className="text-[15px] text-muted-foreground">Add grades on the dashboard first</p>
         </div>
       </div>
     );
@@ -39,29 +37,26 @@ export default function Interpreter() {
 
   return (
     <div className="min-h-screen pb-24">
-      <header className="px-5 pt-14 pb-2 text-center">
-        <h1 className="text-3xl text-foreground tracking-tight">Insights 🔍</h1>
-        <p className="mt-0.5 text-[11px] text-muted-foreground italic">what to focus on</p>
+      <header className="px-4 pt-14 pb-2">
+        <h1 className="text-[28px] font-bold tracking-tight text-foreground">Insights</h1>
+        <p className="text-[13px] text-muted-foreground mt-0.5">What to focus on</p>
       </header>
 
-      <div className="px-5 pt-4 space-y-3">
+      <div className="px-4 pt-3 space-y-3">
         {failing.length > 0 && (
-          <Section icon={<AlertTriangle className="h-3.5 w-3.5 text-destructive" />} title="Needs attention ⚠️" accent>
+          <Section icon={<AlertTriangle className="h-4 w-4 text-destructive" />} title="Needs Attention">
             {failing.map((s, i) => <SubjectRow key={s.id} s={s} i={i} />)}
           </Section>
         )}
-
         {declining.length > 0 && (
-          <Section icon={<TrendingDown className="h-3.5 w-3.5 text-grade-average" />} title="Gone down 📉">
+          <Section icon={<TrendingDown className="h-4 w-4 text-grade-average" />} title="Declining">
             {declining.map((s, i) => <SubjectRow key={s.id} s={s} i={i} showDiff />)}
           </Section>
         )}
-
-        <Section icon={<TrendingDown className="h-3.5 w-3.5 text-muted-foreground" />} title="Lowest grades">
+        <Section icon={<TrendingDown className="h-4 w-4 text-muted-foreground" />} title="Lowest Grades">
           {lowest.map((s, i) => <SubjectRow key={s.id} s={s} i={i} />)}
         </Section>
-
-        <Section icon={<Star className="h-3.5 w-3.5 text-primary" />} title="Strongest 🌟">
+        <Section icon={<Star className="h-4 w-4 text-primary" />} title="Strongest">
           {best.map((s, i) => <SubjectRow key={s.id} s={s} i={i} />)}
         </Section>
       </div>
@@ -69,43 +64,34 @@ export default function Interpreter() {
   );
 }
 
-function Section({ icon, title, children, accent }: { icon: React.ReactNode; title: string; children: React.ReactNode; accent?: boolean }) {
+function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`rounded-2xl bg-card p-4 card-cute ${accent ? 'border-destructive/20' : ''}`}
-    >
+    <div className="card-ios p-4">
       <div className="flex items-center gap-2 mb-3">
         {icon}
-        <span className="text-[10px] font-semibold tracking-[0.12em] uppercase text-muted-foreground/60">{title}</span>
+        <span className="text-[13px] font-semibold text-muted-foreground uppercase tracking-wide">{title}</span>
       </div>
-      <div className="space-y-2">{children}</div>
-    </motion.div>
+      <div className="space-y-1">{children}</div>
+    </div>
   );
 }
 
 function SubjectRow({ s, i, showDiff }: { s: any; i: number; showDiff?: boolean }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, x: -6 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: i * 0.05 }}
-      className="flex items-center justify-between py-1.5"
-    >
+    <div className="flex items-center justify-between py-2">
       <div className="flex items-center gap-2.5">
-        <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: `hsl(${s.color})` }} />
-        <span className="text-sm text-card-foreground">{s.name}</span>
+        <div className="h-3 w-3 rounded-full" style={{ backgroundColor: `hsl(${s.color})` }} />
+        <span className="text-[15px] text-foreground">{s.name}</span>
       </div>
       <div className="flex items-center gap-2">
         {showDiff && s.diff != null && (
-          <span className="text-[10px] text-grade-average">+{s.diff.toFixed(2)} ↓</span>
+          <span className="text-[11px] text-grade-average">+{s.diff.toFixed(2)}</span>
         )}
-        <span className="text-sm font-medium tabular-nums text-card-foreground" style={{ fontFamily: "'Instrument Serif', serif" }}>
+        <span className="text-[15px] font-semibold tabular-nums text-foreground">
           {formatGrade(s.final!)}
         </span>
-        <span className="text-[9px] text-muted-foreground/50">{getGradeLabel(s.final!)}</span>
+        <span className="text-[11px] text-muted-foreground">{getGradeLabel(s.final!)}</span>
       </div>
-    </motion.div>
+    </div>
   );
 }

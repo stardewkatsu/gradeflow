@@ -21,17 +21,12 @@ function AppRoutes() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-2">
-          <span className="text-3xl">🌸</span>
-          <p className="text-sm text-muted-foreground italic">loading…</p>
-        </div>
+        <p className="text-[15px] text-muted-foreground">Loading…</p>
       </div>
     );
   }
 
-  if (!user) {
-    return <Auth />;
-  }
+  if (!user) return <Auth />;
 
   return (
     <GWASetProvider>
